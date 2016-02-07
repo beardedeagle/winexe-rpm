@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+
+SCRIPT=$(basename ${0})
+WINEXE_VER="1.1"
+WINEXE_GITHASH="b787d2a2c4b1abc3653bad10aec943b8efcd7aab"
+SAMBA_GITHASH="a6bda1f2bc85779feb9680bc74821da5ccd401c5"
+
+function help() {
+  echo ""
+  echo "Script to build winexe RPMs"
+  echo ""
+  echo "Syntax: "
+  echo ""
+  echo "${SCRIPT}"
+  echo ""
+  exit 1
+}
+
+function print_invalid_syntax() {
+  echo "Invalid syntax, use ${SCRIPT} -h"
+}
+
+function resolve_deps() {
+  yum install gcc \
+  perl \
+  mingw-binutils-generic \
+  mingw-filesystem-base \
+  mingw32-binutils \
+  mingw32-cpp \
+  mingw32-crt \
+  mingw32-filesystem \
+  mingw32-gcc \
+  mingw32-headers \
+  mingw64-binutils \
+  mingw64-cpp \
+  mingw64-crt \
+  mingw64-filesystem \
+  mingw64-gcc \
+  mingw64-headers \
+  libcom_err-devel \
+  popt-devel \
+  zlib-devel \
+  zlib-static \
+  glibc-devel \
+  glibc-static \
+  python-devel \
+  git \
+  gnutls-devel \
+  libacl-devel \
+  openldap-devel \
+  rpm-build \
+  pkgconfig -y
+
+  yum remove libbsd-devel -y
+}
+
+function check_create_dir() {
+  if [ ! -d "./$1" ]; then
+    mkdir "./$1"
+  fi
+}
+
+function create_build_env() {
+  check_create_dir BUILD
+  check_create_dir BUILDROOT
+  check_create_dir RPMS
+  check_create_dir SOURCES
+  check_create_dir SPECS
+  check_create_dir SRPMS
+}
+
+function get_winexe_sources() {
+  if [ ! -f "./SOURCES/winexe-${2}.tar.gz" ]; then
+    git clone git://git.code.sf.net/p/winexe/winexe-waf winexe-${1}
+    PREVDIR=${PWD}
+    cd winexe-${1} || exit
+    git checkout ${WINEXE_GITHASH}
+    cd source || exit
+    sed -i 's/winexe-static/winexe/' wscript_build
+    sed -i "s/lib='dl'/lib='dl gnutls'/" wscript_build
+    cd ${PREVDIR} || exit
+    tar -cvzf winexe-${1}.tar.gz winexe-${1}
+    mv winexe-${1}.tar.gz SOURCES/
+    rm -rf winexe-${1}
+  fi
+}
+
+function get_samba_sources() {
+  if [ ! -f "./SOURCES/samba.tar.gz" ]; then
+    git clone git://git.samba.org/samba.git samba
+    PREVDIR=${PWD}
+    cd samba || exit
+    git reset --hard ${SAMBA_GITHASH}
+    cd ${PREVDIR} || exit
+    tar -cvzf samba.tar.gz samba
+    mv samba.tar.gz SOURCES/
+    rm -rf samba
+  fi
+}
+
+function build_rpm() {
+  rpmbuild --define "_topdir `pwd`" -ba "SPECS/winexe.spec"
+  return ${?}
+}
+
+# Parse options
+while getopts ":h" opts; do
+  case "${opts}" in
+    h) help ;;
+    *) print_invalid_syntax
+       exit 1 ;;
+  esac
+done
+shift $((OPTIND-1))
+
+resolve_deps
+create_build_env
+get_winexe_sources ${WINEXE_VER} ${WINEXE_GITHASH}
+get_samba_sources ${SAMBA_GITHASH}
+build_rpm
+if [ $? -eq 0 ]; then
+  echo Your packages are available at $PWD/RPMS.
+  exit 0
+else
+  echo There are errors. Check your log.
+  exit 2
+fi
