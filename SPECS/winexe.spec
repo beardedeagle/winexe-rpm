@@ -79,6 +79,8 @@ rm -rf %{buildroot}
 %files
 %defattr(644,root,root,755)
 %attr(755,root,root) /usr/bin/winexe
+%attr(755,root,root) /usr/bin/winexesvc32.exe
+%attr(755,root,root) /usr/bin/winexesvc64.exe
 
 
 %changelog
