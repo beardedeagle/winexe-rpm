@@ -68,6 +68,8 @@ echo %{buildroot}
 rm -rf %{buildroot}
 %__install -d %{buildroot}/usr/bin
 %__install source/build/winexe %{buildroot}/usr/bin
+%__install source/build/winexesvc32.exe %{buildroot}/usr/bin
+%__install source/build/winexesvc64.exe %{buildroot}/usr/bin
 
 
 %clean
