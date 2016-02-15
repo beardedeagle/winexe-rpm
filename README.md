@@ -1,15 +1,24 @@
 # winexe-rpm
-Bash scipt and spec file to prep and build a winexe 1.1 rpm. Built and tested against Centos 7.2 and Samba 4.2.* .
-
-Winexe project home <http://sourceforge.net/projects/winexe/>
+Bash script and spec file to prep and build a winexe 1.1 rpm. Built and tested against:
+* RedHat
+  * 7.2 / 6.7
+  * 4.2.* / 4.0.*
+* CentOS
+  * 7.2 / 6.7
+  * 4.2.* / 4.0.*
 
 Winexe remotely executes commands on Windows NT/2000/XP/2003/Vista/7/2008/8/2012 systems from GNU/Linux.
 
+Winexe project home: <http://sourceforge.net/projects/winexe/>
+Samba project home: <https://www.samba.org/>
+
+> All pull requests are welcome. This package is essential to my own infrastructure so any improvements that can be made are great. If you have the ability, think about picking up development for winexe itself. Thank you in advance for any and all suggestions and help with this package.
+
 ## Requirements
 
-These are handled by the winexe-rpm bash script.
+These are handled by the winexe-rpm bash script. Depending on your system and configuration, you may need to install epel-release.
 
-Installed:
+Installed against RedHat/Centos 7:
 * gcc
 * perl
 * mingw-binutils-generic
@@ -39,6 +48,17 @@ Installed:
 * openldap-devel
 * rpm-build
 * pkgconfig
+
+Installed against RedHat/Centos 6:
+* git
+* rpm-build
+* gcc
+* pkgconfig
+* libtalloc-devel
+* samba4-devel
+* popt-devel
+* mingw64-gcc
+* mingw32-gcc
 
 Removed:
 * libbsd-devel
