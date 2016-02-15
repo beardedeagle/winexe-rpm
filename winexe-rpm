@@ -1,65 +1,88 @@
 #!/usr/bin/env bash
 
-SCRIPT=$(basename ${0})
+# Parse optional params
+while getopts ":h" opts; do
+  case "${opts}" in
+    h )
+      echo "Usage: $0 [-h]" >&2
+      exit 1
+      ;;
+    * )
+      echo "Invalid option: -$OPTARG, use $0 -h" >&2
+      exit 1
+      ;;
+  esac
+done
+shift $((OPTIND-1))
+
+# Set global vars
+OS_VERSION=$(sed 's/[a-zA-Z ()]//g' /etc/redhat-release | cut -d'.' -f1)
+FIX_VERSION="7"
 WINEXE_VER="1.1"
 WINEXE_GITHASH="b787d2a2c4b1abc3653bad10aec943b8efcd7aab"
 SAMBA_GITHASH="a6bda1f2bc85779feb9680bc74821da5ccd401c5"
+WORKING_DIR="${PWD}"
+SOURCES_DIR="${PWD}/SOURCES"
+SPEC_DIR="${PWD}/SPECS"
 
-function help() {
-  echo ""
-  echo "Script to build winexe RPMs"
-  echo ""
-  echo "Syntax: "
-  echo ""
-  echo "${SCRIPT}"
-  echo ""
-  exit 1
-}
-
-function print_invalid_syntax() {
-  echo "Invalid syntax, use ${SCRIPT} -h"
-}
-
-function resolve_deps() {
+# Get deps for build against RHEL/CENT 7.2
+function resolve_cur_deps() {
   yum install gcc \
-  perl \
-  mingw-binutils-generic \
-  mingw-filesystem-base \
-  mingw32-binutils \
-  mingw32-cpp \
-  mingw32-crt \
-  mingw32-filesystem \
-  mingw32-gcc \
-  mingw32-headers \
-  mingw64-binutils \
-  mingw64-cpp \
-  mingw64-crt \
-  mingw64-filesystem \
-  mingw64-gcc \
-  mingw64-headers \
-  libcom_err-devel \
-  popt-devel \
-  zlib-devel \
-  zlib-static \
-  glibc-devel \
-  glibc-static \
-  python-devel \
-  git \
-  gnutls-devel \
-  libacl-devel \
-  openldap-devel \
-  rpm-build \
-  pkgconfig -y
+    perl \
+    mingw-binutils-generic \
+    mingw-filesystem-base \
+    mingw32-binutils \
+    mingw32-cpp \
+    mingw32-crt \
+    mingw32-filesystem \
+    mingw32-gcc \
+    mingw32-headers \
+    mingw64-binutils \
+    mingw64-cpp \
+    mingw64-crt \
+    mingw64-filesystem \
+    mingw64-gcc \
+    mingw64-headers \
+    libcom_err-devel \
+    popt-devel \
+    zlib-devel \
+    zlib-static \
+    glibc-devel \
+    glibc-static \
+    python-devel \
+    git \
+    gnutls-devel \
+    libacl-devel \
+    openldap-devel \
+    rpm-build \
+    pkgconfig -y
 
   yum remove libbsd-devel -y
 }
 
+# Get deps for build against RHEL/CENT 7.1/6.7 and older
+function resolve_leg_deps() {
+  yum install git \
+    rpm-build \
+    gcc \
+    pkgconfig \
+    libtalloc-devel \
+    samba4-devel \
+    popt-devel \
+    mingw64-gcc \
+    mingw32-gcc -y
+
+  yum remove libbsd-devel -y
+}
+
+# Check for folders, if missing create them
 function check_create_dir() {
   if [ ! -d "./$1" ]; then
     mkdir "./$1"
   fi
 }
 
+# Creates rpm build env for winexe
 function create_build_env() {
   check_create_dir BUILD
   check_create_dir BUILDROOT
@@ -69,59 +92,67 @@ function create_build_env() {
   check_create_dir SRPMS
 }
 
+# Download winexe source and ensure we are using correct checkout
 function get_winexe_sources() {
   if [ ! -f "./SOURCES/winexe-${2}.tar.gz" ]; then
+    cd ${SOURCES_DIR} || exit
     git clone git://git.code.sf.net/p/winexe/winexe-waf winexe-${1}
-    PREVDIR=${PWD}
     cd winexe-${1} || exit
     git checkout ${WINEXE_GITHASH}
-    cd source || exit
-    sed -i 's/winexe-static/winexe/' wscript_build
-    sed -i "s/lib='dl'/lib='dl gnutls'/" wscript_build
-    cd ${PREVDIR} || exit
-    tar -cvzf winexe-${1}.tar.gz winexe-${1}
-    mv winexe-${1}.tar.gz SOURCES/
-    rm -rf winexe-${1}
   fi
 }
 
+# Download samba source and ensure we are using correct checkout
 function get_samba_sources() {
   if [ ! -f "./SOURCES/samba.tar.gz" ]; then
+    cd ${SOURCES_DIR} || exit
     git clone git://git.samba.org/samba.git samba
-    PREVDIR=${PWD}
     cd samba || exit
     git reset --hard ${SAMBA_GITHASH}
-    cd ${PREVDIR} || exit
-    tar -cvzf samba.tar.gz samba
-    mv samba.tar.gz SOURCES/
-    rm -rf samba
   fi
 }
 
+# Modify winexe source to build as big as possible
+function mod_winexe_source() {
+  cd ${SOURCES_DIR}/winexe-$WINEXE_VER/source || exit
+  sed -i 's/winexe-static/winexe/' wscript_build
+  sed -i "s/lib='dl'/lib='dl gnutls'/" wscript_build
+}
+
+# RPMS only work against compressed files
+function compress_clean() {
+  cd ${SOURCES_DIR} || exit
+  tar -cvzf winexe-1.1.tar.gz ./*
+  find $SOURCES_DIR/* -type d ! -name "winexe-1.1.tar.gz" -print0 | xargs -0 rm -rf
+  cd ${WORKING_DIR} || exit
+}
+
+# Start the build with proper params
 function build_rpm() {
   rpmbuild --define "_topdir `pwd`" -ba "SPECS/winexe.spec"
   return ${?}
 }
 
-# Parse options
-while getopts ":h" opts; do
-  case "${opts}" in
-    h) help ;;
-    *) print_invalid_syntax
-       exit 1 ;;
-  esac
-done
-shift $((OPTIND-1))
-
-resolve_deps
+# Let the magic begin
 create_build_env
 get_winexe_sources ${WINEXE_VER} ${WINEXE_GITHASH}
-get_samba_sources ${SAMBA_GITHASH}
+if (( $(echo "$OS_VERSION $FIX_VERSION" | awk '{print ($1 == $2)}') )); then
+  resolve_cur_deps
+  get_samba_sources ${SAMBA_GITHASH}
+  mod_winexe_source
+  mv ${SPEC_DIR}/winexe-cur.spec ${SPEC_DIR}/winexe.spec
+else
+  resolve_leg_deps
+  mv ${SPEC_DIR}/winexe-leg.spec ${SPEC_DIR}/winexe.spec
+fi
+compress_clean
 build_rpm
+
+# Done!
 if [ $? -eq 0 ]; then
-  echo Your packages are available at $PWD/RPMS.
+  echo "RPM available at $PWD/RPMS."
   exit 0
 else
-  echo There are errors. Check your log.
+  echo "There are errors. Check your log."
   exit 2
 fi

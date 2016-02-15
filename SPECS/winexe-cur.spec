@@ -7,8 +7,7 @@ Summary: Remote Windows command executor.
 Group: Applications/System
 License: GPLv3
 URL: http://sourceforge.net/projects/winexe/
-Source0: %{name}-%{version}.tar.gz
-Source1: samba.tar.gz
+Source: %{name}-%{version}.tar.gz
 
 
 AutoReqProv: no
@@ -50,11 +49,6 @@ NT/2000/XP/2003/Vista/7/2008/8/2012 systems from GNU/Linux.
 
 
 %prep
-for s in %{sources}; do
-  tar xvzf $s
-done
-
-
 %setup -q
 
 
@@ -68,8 +62,6 @@ echo %{buildroot}
 rm -rf %{buildroot}
 %__install -d %{buildroot}/usr/bin
 %__install source/build/winexe %{buildroot}/usr/bin
-%__install source/build/winexesvc32.exe %{buildroot}/usr/bin
-%__install source/build/winexesvc64.exe %{buildroot}/usr/bin
 
 
 %clean
@@ -79,11 +71,9 @@ rm -rf %{buildroot}
 %files
 %defattr(644,root,root,755)
 %attr(755,root,root) /usr/bin/winexe
-%attr(755,root,root) /usr/bin/winexesvc32.exe
-%attr(755,root,root) /usr/bin/winexesvc64.exe
 
 
 %changelog
-* Sat Feb 06 2016 Randy Thompson <randy@heroictek.com> - 1.1-b787d2
+* Sun Feb 14 2016 Randy Thompson <randy@heroictek.com> - 1.1-b787d2
 - b787d2a2c4b1abc3653bad10aec943b8efcd7aab from git://git.code.sf.net/p/winexe/winexe-waf
 - a6bda1f2bc85779feb9680bc74821da5ccd401c5 from git://git.samba.org/samba.git
